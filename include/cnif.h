@@ -45,11 +45,7 @@ typedef struct /* All fields all internal and may change */
 
 typedef enum {
     ERL_NIF_MAP_ITERATOR_FIRST = 1,
-    ERL_NIF_MAP_ITERATOR_LAST = 2,
-
-    /* deprecated synonyms (undocumented in 17 and 18-rc) */
-    ERL_NIF_MAP_ITERATOR_HEAD = ERL_NIF_MAP_ITERATOR_FIRST,
-    ERL_NIF_MAP_ITERATOR_TAIL = ERL_NIF_MAP_ITERATOR_LAST
+    ERL_NIF_MAP_ITERATOR_LAST = 2
 } ErlNifMapIteratorEntry;
 
 ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM*,cnif_heap_alloc,(ErlNifEnv*,size_t size));
@@ -60,7 +56,7 @@ ERL_NIF_API_FUNC_DECL(int,cnif_heap_commit,(ErlNifEnv*, void** mark));
 ERL_NIF_API_FUNC_DECL(ErlNifEnv*,enif_alloc_env,(void));
 ERL_NIF_API_FUNC_DECL(void,enif_free_env,(ErlNifEnv* env));
 ERL_NIF_API_FUNC_DECL(void,enif_clear_env,(ErlNifEnv* env));
-
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_copy,(ErlNifEnv* dst_env, ERL_NIF_TERM src_term));
 ERL_NIF_API_FUNC_DECL(void*,enif_alloc,(size_t size));
 ERL_NIF_API_FUNC_DECL(void,enif_free,(void* ptr));
 ERL_NIF_API_FUNC_DECL(int,enif_is_atom,(ErlNifEnv*, ERL_NIF_TERM term));
