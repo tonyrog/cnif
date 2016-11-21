@@ -1,6 +1,7 @@
 //
 // Copy functions
 //
+#include <stdio.h>
 #include "../include/cnif_term.h"
 
 //
@@ -370,21 +371,42 @@ ERL_NIF_TERM enif_make_flat_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 
 // 
 // STRUCT COPY - struct copy without a stack
-// and repair the original with a log
+// and repair the original using a log
 //
-static inline ERL_NIF_TERM struct_copy(ErlNifEnv* dst_env, 
+#define IN_RANGE(ptr,src0,src1) (((ptr) >= src0) && ((ptr) <= src1))
+
+#define SET_POINTER(logp, srcp, value) do {		\
+	if ((logp)) {				\
+	    (logp)[0] = (ERL_NIF_TERM) (srcp);	\
+	    (logp)[1] = (srcp)[0];		\
+	    logp += 2;				\
+	}					\
+	(srcp)[0] = (value);			\
+    } while(0)	
+
+
+static inline ERL_NIF_TERM struct_copy(ErlNifEnv* dst_env,
 				       ERL_NIF_TERM src_term)
 {
     ERL_NIF_UINT size;
     ERL_NIF_TERM* srcp;
     ERL_NIF_TERM* from;
+    ERL_NIF_TERM* to0;
     ERL_NIF_TERM* to;
+    ERL_NIF_TERM* to_end;
     ERL_NIF_TERM  dst_term;
+    ERL_NIF_TERM* logp0;
+    ERL_NIF_TERM* logp;
+    ERL_NIF_TERM* ptr;
 
     if ((size = flat_size(src_term)) == 0)
 	return src_term;
-    to = cnif_heap_alloc(dst_env, size);  // must be consecutive chunk
-    from = to;
+    to0 = cnif_heap_alloc(dst_env, size);  // must be consecutive chunk
+    to  = to0;
+    from = to0;
+
+    logp0 = (ERL_NIF_TERM*) enif_alloc(2*size*sizeof(ERL_NIF_TERM*));
+    logp = logp0;
 
     switch(src_term & 3) {
     case TAG_PRIMARY_HEADER: // FIXME: fail
@@ -394,6 +416,7 @@ static inline ERL_NIF_TERM struct_copy(ErlNifEnv* dst_env,
 	to[0] = srcp[0];
 	to[1] = srcp[1];
 	dst_term = MAKE_LIST(to);
+	SET_POINTER(logp, srcp, dst_term);
 	to += 2;
 	break;
     }
@@ -404,6 +427,7 @@ static inline ERL_NIF_TERM struct_copy(ErlNifEnv* dst_env,
 	for (i = 0; i <= arity; i++)
 	    to[i] = srcp[i];
 	dst_term = MAKE_BOXED(to);
+	SET_POINTER(logp, srcp, dst_term);
 	to += (arity+1);
 	break;
     }
@@ -454,26 +478,53 @@ static inline ERL_NIF_TERM struct_copy(ErlNifEnv* dst_env,
 
 	case TAG_PRIMARY_LIST: {
 	    ERL_NIF_TERM* srcp = GET_LIST(src);
-	    to[0] = srcp[0];
-	    to[1] = srcp[1];
-	    *from++ = MAKE_LIST(to);
-	    to += 2;
+	    if (IS_LIST(srcp[0]) && IN_RANGE(GET_PTR(srcp[0]),to0,to)) {
+		printf("reuse list = %p\n", (ERL_NIF_TERM*) srcp[0]);
+		*from++ = srcp[0];
+	    }
+	    else {
+		to[0] = srcp[0];
+		to[1] = srcp[1];
+		*from = MAKE_LIST(to);
+		SET_POINTER(logp, srcp, *from);
+		from++;
+		to += 2;
+	    }
 	    break;
 	}
 	case TAG_PRIMARY_BOXED: {
 	    ERL_NIF_TERM* srcp  = GET_BOXED(src);
-	    ERL_NIF_UINT  arity = GET_ARITYVAL(*srcp);
-	    ERL_NIF_UINT  i;
-	    for (i = 0; i <= arity; i++)
-		to[i] = srcp[i];
-	    *from++ = MAKE_BOXED(to);
-	    to += (arity+1);
+	    if (IS_BOXED(srcp[0]) && IN_RANGE(GET_PTR(srcp[0]),to0,to)) {
+		printf("reuse structure = %p\n", (ERL_NIF_TERM*) srcp[0]);
+		*from++ = srcp[0];
+	    }
+	    else {
+		ERL_NIF_UINT  arity = GET_ARITYVAL(*srcp);
+		ERL_NIF_UINT  i;
+		for (i = 0; i <= arity; i++)
+		    to[i] = srcp[i];
+		*from = MAKE_BOXED(to);
+		SET_POINTER(logp, srcp, *from);
+		from++;
+		to += (arity+1);
+	    }
 	    break;
 	}
 	case TAG_PRIMARY_IMMED1: 
 	    from++;
 	}
     }
+    printf("struct size = %ld\n", (to - to0));
+
+    // restore pointers
+    ptr = logp0;
+    while(ptr < logp) {
+	printf("restore pointer %p\n", (ERL_NIF_TERM*) ptr[0]);
+	*((ERL_NIF_TERM*) ptr[0]) = ptr[1];
+	ptr += 2;
+    }
+    enif_free(logp0);
+
     return dst_term;
 }
 

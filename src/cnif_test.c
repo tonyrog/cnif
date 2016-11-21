@@ -164,14 +164,16 @@ int main(int argc, char** argv)
 	ERL_NIF_TERM t_copy;
 	ERL_NIF_TERM t_flat;
 	ERL_NIF_TERM t_struct;
-
+	
 	arr[0] = enif_make_string(env, "hello", ERL_NIF_LATIN1);
 	memcpy(enif_make_new_binary(env, 10, &arr[1]), "01234567789", 10);
 	arr[2] = enif_make_string(env, "world", ERL_NIF_LATIN1);
 	arr[3] = arr[2];
-	arr[4] = arr[1];
-	arr[5] = arr[0];
-	t = enif_make_list_from_array(env, arr, 6);
+	arr[4] = enif_make_tuple_from_array(env, arr, 3);
+	arr[5] = arr[1];
+	arr[6] = arr[0];
+	arr[7] = arr[4];
+	t = enif_make_list_from_array(env, arr, 8);
 	enif_io_write(iop, t); printf("\n");
 
 	printf("term size = %lu\n", enif_flat_size(t));
@@ -185,6 +187,9 @@ int main(int argc, char** argv)
 	enif_io_write(iop, t_flat); printf("\n");
 	printf("size of t_struct = %lu\n", enif_flat_size(t_struct));
 	enif_io_write(iop, t_struct); printf("\n");
+
+	printf("original t again\n");
+	enif_io_write(iop, t); printf("\n");
     }
 
     // Test stream a erlang consult file
