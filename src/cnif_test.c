@@ -136,7 +136,6 @@ int main(int argc, char** argv)
     t = enif_make_map_from_arrays(env, key, value, 0);
     enif_io_write(iop, t); printf("\n");
 
-
     key[0] = enif_make_atom(env, "x");
     value[0] = enif_make_int(env, 0);
     t = enif_make_map_from_arrays(env, key, value, 1);
@@ -160,6 +159,34 @@ int main(int argc, char** argv)
 	}
     }
 
+    // create term and copy-recurive/flat/struct
+    {
+	ERL_NIF_TERM t_copy;
+	ERL_NIF_TERM t_flat;
+	ERL_NIF_TERM t_struct;
+
+	arr[0] = enif_make_string(env, "hello", ERL_NIF_LATIN1);
+	memcpy(enif_make_new_binary(env, 10, &arr[1]), "01234567789", 10);
+	arr[2] = enif_make_string(env, "world", ERL_NIF_LATIN1);
+	arr[3] = arr[2];
+	arr[4] = arr[1];
+	arr[5] = arr[0];
+	t = enif_make_list_from_array(env, arr, 6);
+	enif_io_write(iop, t); printf("\n");
+
+	printf("term size = %lu\n", enif_flat_size(t));
+	t_copy = enif_make_copy(env, t);
+	t_flat = enif_make_flat_copy(env, t);
+	t_struct = enif_make_struct_copy(env, t);
+
+	printf("size of t_copy = %lu\n", enif_flat_size(t_copy));
+	enif_io_write(iop, t_copy); printf("\n");
+	printf("size of t_flat = %lu\n", enif_flat_size(t_flat));
+	enif_io_write(iop, t_flat); printf("\n");
+	printf("size of t_struct = %lu\n", enif_flat_size(t_struct));
+	enif_io_write(iop, t_struct); printf("\n");
+    }
+
     // Test stream a erlang consult file
     if (argc > 1) {
 	enif_io_set_callback(iop, term_callback);
@@ -173,6 +200,7 @@ int main(int argc, char** argv)
     enif_io_pop(iop);
 
     enif_clear_env(env);
+
     enif_free_env(env);
 
     exit(0);

@@ -19,6 +19,7 @@ int enif_inspect_big(ErlNifEnv* env,ERL_NIF_TERM term,ErlNifBignum* big)
 	if (IS_BIGVAL(ptr[0])) {
 	    big->sign   = *ptr & _BIG_SIGN_BIT;
 	    big->size   = GET_ARITYVAL(*ptr);
+	    big->asize  = 0;
 	    big->digits = ptr + 1;
 	    return 1;
 	}
@@ -31,12 +32,10 @@ ERL_NIF_TERM enif_make_number(ErlNifEnv* env, ErlNifBignum* big)
 {
     ERL_NIF_TERM t;
     ERL_NIF_TERM* ptr;
-    size_t size = big->size;
+    size_t size;
     int i;
 
-    // trim off zeros from high digits
-    while((size > 1) && !big->digits[size-1])
-	size--;
+    size = cnif_big_trail(big->digits, big->size);
     if (size == 1) {
 	// use make_uint64 / int64 to cover "all" cases
 	if (!big->sign)
@@ -62,6 +61,7 @@ int enif_get_number(ErlNifEnv* env, ERL_NIF_TERM t, ErlNifBignum* big)
 	ErlNifSInt64 digit;
 	if (enif_get_int64(env, t, &digit)) {
 	    big->size = 1;
+	    big->asize = 0;
 	    if (digit < 0) {
 		big->sign = 1;
 		big->ds[0] = -digit;
@@ -92,6 +92,7 @@ int enif_alloc_number(ErlNifEnv* env, ErlNifBignum* big, size_t n)
     for (i = 0; i < n; i++)
 	digits[i] = 0;
     big->size   = n;
+    big->asize  = n;
     big->sign   = 0;
     big->digits = digits;
     return 1;
@@ -101,35 +102,38 @@ int enif_alloc_number(ErlNifEnv* env, ErlNifBignum* big, size_t n)
 int enif_copy_number(ErlNifEnv* env, ErlNifBignum* big, size_t min_size)
 {
     size_t n;
+    size_t an;
     ErlNifBigDigit* digits;
     int i;
 
     n = (min_size > big->size) ? min_size : big->size;
-    if (n <= NUM_TMP_DIGITS)
+    if (n <= NUM_TMP_DIGITS) {
+	an = NUM_TMP_DIGITS;
 	digits = &big->ds[0];
-    else
-	digits = (ErlNifBigDigit*) enif_alloc(sizeof(ErlNifBigDigit)*n);
-    if (!digits)
-	return 0;
+    }
+    else {
+	an = n;
+	if (!(digits = (ErlNifBigDigit*) enif_alloc(sizeof(ErlNifBigDigit)*n)))
+	    return 0;
+    }
     i = 0;
     while(i < big->size) {
 	digits[i] = big->digits[i];
 	i++;
     }
-    while(i < n) {
+    while(i < an) {
 	digits[i] = 0;
 	i++;
     }
-    big->size   = n;
+    big->asize  = an;
     big->digits = digits;
     return 1;
 }
 
 //  Release temporary memory associated with ErlNifBignum
-// FIXME: debug: make sure (flag) digits are allocated (using copy_number)
 void enif_release_number(ErlNifEnv* env, ErlNifBignum* big)
 {
-    if (big->digits && (big->digits != big->ds))
+    if (big->asize && (big->digits != big->ds))
 	enif_free(big->digits);
 }
 
@@ -140,4 +144,16 @@ int enif_get_copy_number(ErlNifEnv* env, ERL_NIF_TERM t, ErlNifBignum* big,
     if (!enif_get_number(env, t, big))
 	return 0;
     return enif_copy_number(env, big, min_size);
+}
+
+void cnif_big_write(enif_io_t* iop, ErlNifBignum* src)
+{
+    int i;
+    if (src->sign)
+	enif_io_format(iop,"-");
+    enif_io_format(iop,"16#[");
+    for (i = 0; i < src->size; i++) {
+	enif_io_format(iop,"%016lx", src->digits[i]);
+    }
+    enif_io_format(iop,"]");
 }

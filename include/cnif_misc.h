@@ -49,4 +49,10 @@ ERL_NIF_API_FUNC_DECL(int, enif_each_element,
 		       void (*fun)(ErlNifEnv* env,int i,ERL_NIF_TERM value,void* arg),
 		      ERL_NIF_TERM term,
 		       void* arg));
+
+ERL_NIF_API_FUNC_DECL(ERL_NIF_UINT,enif_flat_size,(ERL_NIF_TERM src_term));
+
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_flat_copy,(ErlNifEnv* dst_env, ERL_NIF_TERM src_term));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_struct_copy,(ErlNifEnv* dst_env, ERL_NIF_TERM src_term));
+
 #endif

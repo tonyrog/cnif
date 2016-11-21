@@ -694,14 +694,7 @@ void enif_io_write_integer(enif_io_t* iop, ERL_NIF_TERM term)
 	}
     }
     else if (enif_inspect_big(iop->env, term, &bi)) {
-	int i;
-	if (bi.sign)
-	    enif_io_format(iop,"-");
-	enif_io_format(iop,"16#[");
-	for (i = 0; i < bi.size; i++) {
-	    enif_io_format(iop,"%016lx", bi.digits[i]);
-	}
-	enif_io_format(iop,"]");
+	cnif_big_write(iop, &bi);
     }
 }
 
